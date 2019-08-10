@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/danlamanna/rivet/girder"
@@ -125,6 +126,17 @@ func buildResourceMap(ctx *girder.Context, baseDir string) (int, int) {
 			return nil
 		}
 
+		if filepath == "." {
+			return nil
+		}
+
+		if strings.Contains(filepath, "modules") {
+			return nil
+		}
+		if strings.Contains(filepath, "testdata") {
+			return nil
+		}
+
 		fileType := ""
 		if info.IsDir() {
 			fileType = "directory"
@@ -156,8 +168,9 @@ func buildResourceMap(ctx *girder.Context, baseDir string) (int, int) {
 func Upload(ctx *girder.Context, source string, destination girder.GirderID) {
 	ctx.Logger.Infof("scanning %s for syncable items", source)
 
-	os.Chdir(path.Dir(source))
-	source = path.Base(source)
+	absSource, _ := filepath.Abs(source)
+	os.Chdir(absSource)
+	source = "."
 	numDirs, numFiles := buildResourceMap(ctx, source)
 	ctx.Logger.Infof("found %d dirs, %d files to potentially sync", numDirs, numFiles)
 
@@ -186,8 +199,13 @@ func Upload(ctx *girder.Context, source string, destination girder.GirderID) {
 		go func() {
 			for pathAndResource := range itemsToUpload {
 				parent := ctx.ResourceMap.Parent(pathAndResource.Resource)
-				parentID := parent.GirderID
-				if parent.SkipSync {
+
+				// default to the root sync dest, override if there's a parent
+				parentID := girder.GirderID(strings.TrimPrefix(string(destination), "girder://"))
+				if parent != nil {
+					parentID = parent.GirderID
+				}
+				if parent != nil && parent.SkipSync {
 					mutex.Lock()
 					ctx.ResourceMap[pathAndResource.Path].SkipSync = true
 					ctx.ResourceMap[pathAndResource.Path].SkipReason = parent.SkipReason
