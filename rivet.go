@@ -119,12 +119,14 @@ func main() {
 				source, dest := c.Args().Get(0), c.Args().Get(1)
 				source = strings.TrimSuffix(source, "/")
 
-				if _, err := os.Stat(source); err != nil {
+				if stat, err := os.Stat(source); err != nil {
 					if os.IsNotExist(err) {
 						log.Fatalf("source directory %s does not exist.\n", source)
 					} else {
 						log.Fatalf("failed to access source directory %s, err: %s.\n", source, err)
 					}
+				} else if !stat.IsDir() {
+					log.Fatalf("source %s is not a directory.\n", source)
 				}
 
 				if source == "" && dest == "" || !strings.HasPrefix(dest, "girder://") {
