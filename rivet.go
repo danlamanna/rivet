@@ -28,12 +28,24 @@ var (
 	sync   = app.Command("sync", "sync a local directory to a girder folder")
 	source = sync.Arg("source", "source directory").Required().String()
 	dest   = sync.Arg("dest", "dest girder folder").Required().String()
+
+	versionCmd = app.Command("version", "")
 )
 
 func main() {
-
+	app.HelpFlag.Short('h')
 	app.UsageTemplate(templates.DefaultUsageTemplate)
 	app.Version(version)
+
+	// kingpin doesn't allow help for subcommands, so we hook in before parsing
+	// to possible show help pages
+	if len(os.Args) >= 3 && os.Args[1] == "help" && os.Args[2] == "configure" {
+		fmt.Print(fmt.Errorf(templates.ConfigureUsageTemplate))
+		os.Exit(1)
+	} else if len(os.Args) >= 3 && os.Args[1] == "help" && os.Args[2] == "sync" {
+		fmt.Print(fmt.Errorf(templates.SyncUsageTemplate))
+		os.Exit(1)
+	}
 
 	res, _ := app.Parse(os.Args[1:])
 
@@ -46,6 +58,15 @@ func main() {
 	}
 	if *url == "" {
 		url = &profile.URL
+	}
+
+	if res == "" {
+		fmt.Printf(`usage: rivet [options] [subcommand] [arguments]
+To see help text, you can run:
+
+rivet help
+rivet help <subcommand>`)
+		os.Exit(1)
 	}
 
 	if res == "configure" {
@@ -136,5 +157,7 @@ func main() {
 		}
 
 		transfer.Upload(girderCtx, *source, girder.GirderID(*dest))
+	} else if res == "version" {
+		fmt.Printf("rivet %s", version)
 	}
 }
