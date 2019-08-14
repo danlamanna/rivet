@@ -43,7 +43,7 @@ func decodeResponse(resp *http.Response, success, failure interface{}) error {
 // Get does stuff
 func Get(ctx *Context, url string, success interface{}, failure interface{}) (*http.Response, error) {
 	client := retryablehttp.NewClient()
-	if ctx.Logger.Level == logrus.InfoLevel {
+	if ctx.Logger.Level <= logrus.TraceLevel {
 		client.Logger = log.New(ioutil.Discard, "", 0)
 		client.RequestLogHook = logRequest(ctx)
 	}
@@ -69,7 +69,7 @@ func Get(ctx *Context, url string, success interface{}, failure interface{}) (*h
 // GetBasicAuth does stuff
 func GetBasicAuth(ctx *Context, auth string, url string, success interface{}, failure interface{}) (*http.Response, error) {
 	client := retryablehttp.NewClient()
-	if ctx.Logger.Level == logrus.InfoLevel {
+	if ctx.Logger.Level <= logrus.TraceLevel {
 		client.Logger = log.New(ioutil.Discard, "", 0)
 		client.RequestLogHook = logRequest(ctx)
 	}
@@ -98,7 +98,7 @@ func GetBasicAuth(ctx *Context, auth string, url string, success interface{}, fa
 func Post(ctx *Context, url string, rawBody interface{}, success interface{}, failure *GirderError) (*http.Response, error) {
 	client := retryablehttp.NewClient()
 	client.RetryWaitMax = time.Millisecond * 100
-	if ctx.Logger.Level == logrus.InfoLevel {
+	if ctx.Logger.Level != logrus.TraceLevel {
 		client.Logger = log.New(ioutil.Discard, "", 0)
 		client.RequestLogHook = logRequest(ctx)
 	}
@@ -127,7 +127,7 @@ func Post(ctx *Context, url string, rawBody interface{}, success interface{}, fa
 // Put does stuff
 func Put(ctx *Context, url string, rawBody interface{}, success interface{}, failure interface{}) (*http.Response, error) {
 	client := retryablehttp.NewClient()
-	if ctx.Logger.Level == logrus.InfoLevel {
+	if ctx.Logger.Level <= logrus.TraceLevel {
 		client.Logger = log.New(ioutil.Discard, "", 0)
 		client.RequestLogHook = logRequest(ctx)
 	}

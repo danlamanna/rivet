@@ -65,7 +65,7 @@ func _uploadBytes(ctx *girder.Context, upload girder.GirderID, fullPath string, 
 		gerr := new(girder.GirderError)
 
 		if totalChunks > 1 {
-			ctx.Logger.Infof("%s - uploading chunk %d/%d", fullPath, i, totalChunks)
+			ctx.Logger.Debugf("%s - uploading chunk %d/%d", fullPath, i, totalChunks)
 		}
 		_, err = girder.Post(ctx, fmt.Sprintf("file/chunk?uploadId=%s&offset=%d", upload, offset), r, chunkOrFile, gerr)
 
@@ -92,7 +92,8 @@ func uploadFile(ctx *girder.Context, parentID girder.GirderID, fullPath string, 
 		return 0
 	}
 	if len(files) == 0 {
-		ctx.Logger.Infof("uploading new file %s\n", fullPath)
+		ctx.Logger.Debugf("detected new file %s\n", fullPath)
+		ctx.Logger.Infof("uploading: %s\n", fullPath)
 		// creating a new file
 		girder.Post(ctx, fmt.Sprintf("file?parentId=%s&name=%s&parentType=item&size=%d", parentID, name, fi.Size()), nil, upload, nil)
 
@@ -101,7 +102,8 @@ func uploadFile(ctx *girder.Context, parentID girder.GirderID, fullPath string, 
 		// potentially updating the contents of an existing file, or no-oping
 
 		if files[0].Size != fi.Size() {
-			ctx.Logger.Infof("%s changed on disk, re-uploading.\n", fullPath)
+			ctx.Logger.Debugf("file sizes differ for %s\n", fullPath)
+			ctx.Logger.Infof("uploading: %s\n", fullPath)
 			// change file contents
 			girder.Put(ctx, fmt.Sprintf("file/%s/contents?size=%d",
 
@@ -166,7 +168,7 @@ func buildResourceMap(ctx *girder.Context, baseDir string) (int, int) {
 }
 
 func Upload(ctx *girder.Context, source string, destination girder.GirderID) {
-	ctx.Logger.Infof("scanning %s for syncable items", source)
+	ctx.Logger.Debugf("scanning %s for syncable items", source)
 
 	absSource, _ := filepath.Abs(source)
 	os.Chdir(absSource)
@@ -184,10 +186,10 @@ func Upload(ctx *girder.Context, source string, destination girder.GirderID) {
 		ctx.Logger.Fatalf("failed to retrieve destination folder, err: %s", httpErr.Message)
 	}
 
-	ctx.Logger.Info("building remote girder directories")
+	ctx.Logger.Debug("building remote girder directories")
 	buildGirderDirs(ctx, source)
 
-	ctx.Logger.Info("building remote girder items")
+	ctx.Logger.Debug("building remote girder items")
 
 	numJobs := 0
 	var mutex sync.Mutex
@@ -244,7 +246,7 @@ func Upload(ctx *girder.Context, source string, destination girder.GirderID) {
 		<-results
 	}
 
-	ctx.Logger.Info("syncing blobs")
+	ctx.Logger.Debug("syncing blobs")
 
 	numJobs = 0
 	filesToUpload := make(chan *girder.PathAndResource, numFiles)
@@ -282,7 +284,6 @@ func Upload(ctx *girder.Context, source string, destination girder.GirderID) {
 		<-results
 	}
 
-	ctx.Logger.Info("done")
 	ctx.Logger.Info("")
 
 	ctx.Logger.Info("summary:")
