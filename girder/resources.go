@@ -3,6 +3,7 @@ package girder
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -30,7 +31,7 @@ func GetOrCreateFolderRecursive(ctx *Context, path string) (GirderID, error) {
 
 		folder := new(GirderObject)
 		httpErr := new(GirderError)
-		url := fmt.Sprintf("folder?parentType=folder&reuseExisting=true&name=%s&parentId=%s", part, string(parentID))
+		url := fmt.Sprintf("folder?parentType=folder&reuseExisting=true&name=%s&parentId=%s", url.QueryEscape(part), string(parentID))
 		_, err := Post(ctx, url, nil, folder, httpErr)
 		if err != nil {
 			ctx.Logger.Errorf("problem creating %s, err: %s", partialPath, err)
@@ -56,7 +57,7 @@ func GetOrCreateFolderRecursive(ctx *Context, path string) (GirderID, error) {
 func GetOrCreateItem(ctx *Context, folderID GirderID, name string) (GirderID, error) {
 	obj := new(GirderObject)
 	httpErr := new(GirderError)
-	_, err := Post(ctx, fmt.Sprintf("item?folderId=%s&name=%s&reuseExisting=true", folderID, name), nil, obj, httpErr)
+	_, err := Post(ctx, fmt.Sprintf("item?folderId=%s&name=%s&reuseExisting=true", folderID, url.QueryEscape(name)), nil, obj, httpErr)
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("failed to create item %s, err: %s", name, err))
 	} else if httpErr.Message != "" {

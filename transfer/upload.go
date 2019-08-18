@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -95,7 +96,7 @@ func uploadFile(ctx *girder.Context, parentID girder.GirderID, fullPath string, 
 		ctx.Logger.Debugf("detected new file %s\n", fullPath)
 		ctx.Logger.Infof("uploading: %s\n", fullPath)
 		// creating a new file
-		girder.Post(ctx, fmt.Sprintf("file?parentId=%s&name=%s&parentType=item&size=%d", parentID, name, fi.Size()), nil, upload, nil)
+		girder.Post(ctx, fmt.Sprintf("file?parentId=%s&name=%s&parentType=item&size=%d", parentID, url.QueryEscape(name), fi.Size()), nil, upload, nil)
 
 		_uploadBytes(ctx, upload.ID, fullPath, fi)
 	} else if len(files) == 1 {
