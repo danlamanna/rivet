@@ -14,12 +14,14 @@ import (
 
 	"github.com/danlamanna/rivet/girder"
 	"github.com/danlamanna/rivet/util"
+	"github.com/vbauerster/mpb"
+	"github.com/vbauerster/mpb/decor"
 )
 
 const maxChunkSize = 1024 * 1024 * 16
 
 // build these synchronously or use a better data structure for determining when parents are created
-func buildGirderDirs(ctx *girder.Context, baseDir string) {
+func buildGirderDirs(ctx *girder.Context, baseDir string, bar *mpb.Bar) {
 
 	// get directories to build in sorted order (to avoid extraneous girder POST requests)
 	dirsToBuild := make([]string, 0)
@@ -33,10 +35,11 @@ func buildGirderDirs(ctx *girder.Context, baseDir string) {
 
 	for _, v := range dirsToBuild {
 		girder.GetOrCreateFolderRecursive(ctx, v)
+		bar.Increment()
 	}
 }
 
-func _uploadBytes(ctx *girder.Context, upload girder.GirderID, fullPath string, fi os.FileInfo) {
+func _uploadBytes(ctx *girder.Context, upload girder.GirderID, fullPath string, fi os.FileInfo, bar *mpb.Bar) {
 
 	file, err := os.Open(fullPath)
 	if err != nil {
@@ -51,7 +54,7 @@ func _uploadBytes(ctx *girder.Context, upload girder.GirderID, fullPath string, 
 	for {
 		bufSize := util.Min(maxChunkSize, fi.Size()-offset)
 		buffer := make([]byte, bufSize)
-		_, err := file.Read(buffer)
+		bytesRead, err := file.Read(buffer)
 
 		if err != nil {
 			if err != io.EOF {
@@ -75,6 +78,7 @@ func _uploadBytes(ctx *girder.Context, upload girder.GirderID, fullPath string, 
 			// handle error
 		}
 
+		bar.IncrBy(bytesRead)
 		i++
 		if offset >= fi.Size() {
 			break
@@ -82,7 +86,7 @@ func _uploadBytes(ctx *girder.Context, upload girder.GirderID, fullPath string, 
 	}
 }
 
-func uploadFile(ctx *girder.Context, parentID girder.GirderID, fullPath string, name string) int {
+func uploadFile(ctx *girder.Context, parentID girder.GirderID, fullPath string, name string, bar *mpb.Bar) int {
 	files := girder.ItemFiles(ctx, parentID)
 	upload := new(girder.GirderObject)
 	gerr := new(girder.GirderError)
@@ -98,7 +102,7 @@ func uploadFile(ctx *girder.Context, parentID girder.GirderID, fullPath string, 
 		// creating a new file
 		girder.Post(ctx, fmt.Sprintf("file?parentId=%s&name=%s&parentType=item&size=%d", parentID, url.QueryEscape(name), fi.Size()), nil, upload, nil)
 
-		_uploadBytes(ctx, upload.ID, fullPath, fi)
+		_uploadBytes(ctx, upload.ID, fullPath, fi, bar)
 	} else if len(files) == 1 {
 		// potentially updating the contents of an existing file, or no-oping
 
@@ -110,7 +114,7 @@ func uploadFile(ctx *girder.Context, parentID girder.GirderID, fullPath string, 
 
 				files[0].ID, fi.Size()), nil, upload, gerr)
 
-			_uploadBytes(ctx, upload.ID, fullPath, fi)
+			_uploadBytes(ctx, upload.ID, fullPath, fi, bar)
 		}
 
 	} else {
@@ -188,7 +192,16 @@ func Upload(ctx *girder.Context, source string, destination girder.GirderID) {
 	}
 
 	ctx.Logger.Debug("building remote girder directories")
-	buildGirderDirs(ctx, source)
+
+	p := mpb.New(mpb.WithWidth(64))
+	bar := p.AddBar(int64(numDirs),
+		mpb.PrependDecorators(
+			decor.Name("building girder folder", decor.WCSyncSpaceR),
+			decor.CountersNoUnit("%d / %d", decor.WCSyncWidth),
+		),
+		mpb.AppendDecorators(decor.Percentage(decor.WC{W: 5})))
+	buildGirderDirs(ctx, source, bar)
+	p.Wait()
 
 	ctx.Logger.Debug("building remote girder items")
 
@@ -196,6 +209,14 @@ func Upload(ctx *girder.Context, source string, destination girder.GirderID) {
 	var mutex sync.Mutex
 	itemsToUpload := make(chan *girder.PathAndResource, numFiles)
 	results := make(chan bool, numFiles)
+
+	p = mpb.New(mpb.WithWidth(64))
+	bar2 := p.AddBar(int64(numFiles),
+		mpb.PrependDecorators(
+			decor.Name("building girder item  ", decor.WCSyncSpaceR),
+			decor.CountersNoUnit("%d / %d", decor.WCSyncWidth),
+		),
+		mpb.AppendDecorators(decor.Percentage(decor.WC{W: 5})))
 
 	// spawn 10 workers for building items
 	for w := 1; w <= 10; w++ {
@@ -245,26 +266,42 @@ func Upload(ctx *girder.Context, source string, destination girder.GirderID) {
 
 	for a := 0; a < numJobs; a++ {
 		<-results
+		bar2.Increment()
 	}
 
+	p.Wait()
 	ctx.Logger.Debug("syncing blobs")
 
 	numJobs = 0
 	filesToUpload := make(chan *girder.PathAndResource, numFiles)
-	results = make(chan bool, numFiles)
+	results2 := make(chan bool, numFiles)
+
+	var numBytes int64
+	for _, resource := range ctx.ResourceMap {
+		if resource.Type == "file" && resource.GirderID != "" {
+			numBytes += resource.Size
+		}
+	}
+
+	p = mpb.New(mpb.WithWidth(64))
+	bar3 := p.AddBar(int64(numBytes),
+		mpb.PrependDecorators(
+			decor.Name("syncing blobs      ", decor.WCSyncSpaceR),
+			decor.CountersKibiByte("% .2f / % .2f"),
+		),
+		mpb.AppendDecorators(decor.Percentage(decor.WC{W: 5})))
 
 	// spawn 10 workers for uploading files
 	for w := 1; w <= 10; w++ {
 		go func() {
 			for pathAndResource := range filesToUpload {
 				if pathAndResource != nil {
-					uploadFile(ctx, pathAndResource.Resource.GirderID, pathAndResource.Path, path.Base(pathAndResource.Path))
+					uploadFile(ctx, pathAndResource.Resource.GirderID, pathAndResource.Path, path.Base(pathAndResource.Path), bar3)
 				}
-				results <- true
+				results2 <- true
 			}
 		}()
 	}
-
 	for filepath, resource := range ctx.ResourceMap {
 		if resource.Type == "file" && resource.GirderID != "" {
 			f := new(girder.PathAndResource)
@@ -281,9 +318,12 @@ func Upload(ctx *girder.Context, source string, destination girder.GirderID) {
 	}
 	close(filesToUpload)
 
+	var _ *girder.Resource
 	for a := 0; a < numJobs; a++ {
-		<-results
+		<-results2
+
 	}
+	p.Wait()
 
 	ctx.Logger.Info("")
 
