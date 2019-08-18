@@ -13,11 +13,11 @@ type GirderObject struct {
 
 type GirderTokenResponse struct {
 	AuthToken struct {
-		Token   string    `json:"token"`
+		Token string `json:"token"`
 	} `json:"authToken"`
 	User struct {
-		ID string `json:"_id"`
-	Email string `json:"email"`
+		ID    string `json:"_id"`
+		Email string `json:"email"`
 	} `json:"user"`
 }
 

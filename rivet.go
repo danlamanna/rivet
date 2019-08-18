@@ -53,7 +53,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if *auth == "" && profile != nil  {
+	if *auth == "" && profile != nil {
 		auth = &profile.Auth
 	}
 	if *url == "" && profile != nil {
