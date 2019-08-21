@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/danlamanna/rivet/config"
+	"github.com/danlamanna/rivet/download"
 	"github.com/danlamanna/rivet/girder"
 	"github.com/danlamanna/rivet/templates"
 	"github.com/danlamanna/rivet/transfer"
@@ -110,17 +111,26 @@ rivet help <subcommand>`)
 		config.WriteDefaultProfile(promptedAuth, validURL)
 	} else if res == "sync" {
 		*source = strings.TrimSuffix(*source, "/")
+		*dest = strings.TrimSuffix(*dest, "/")
 
-		if stat, err := os.Stat(*source); err != nil {
-			if os.IsNotExist(err) {
-				log.Fatalf("source directory %s does not exist.\n", *source)
-			} else {
-				log.Fatalf("failed to access source directory %s, err: %s.\n", *source, err)
-			}
-		} else if !stat.IsDir() {
-			log.Fatalf("source %s is not a directory.\n", *source)
+		sourceIsGirder := strings.HasPrefix(*source, "girder://")
+		destIsGirder := strings.HasPrefix(*dest, "girder://")
+		if sourceIsGirder && destIsGirder {
+			log.Fatal("cannot sync between two girder instances")
+		} else if !sourceIsGirder && !destIsGirder {
+			log.Fatal("cannot sync between two local directories")
 		}
-
+		if destIsGirder {
+			if stat, err := os.Stat(*source); err != nil {
+				if os.IsNotExist(err) {
+					log.Fatalf("source directory %s does not exist.\n", *source)
+				} else {
+					log.Fatalf("failed to access source directory %s, err: %s.\n", *source, err)
+				}
+			} else if !stat.IsDir() {
+				log.Fatalf("source %s is not a directory.\n", *source)
+			}
+		}
 		if *auth == "" {
 			fmt.Println("See --auth flag")
 			os.Exit(1)
@@ -156,7 +166,11 @@ rivet help <subcommand>`)
 			log.Fatal(err)
 		}
 
-		transfer.Upload(girderCtx, *source, girder.GirderID(*dest))
+		if destIsGirder {
+			transfer.Upload(girderCtx, *source, girder.GirderID(*dest))
+		} else if sourceIsGirder {
+			download.Download(girderCtx, girder.GirderID(strings.TrimPrefix(*source, "girder://")), *dest)
+		}
 	} else if res == "version" {
 		fmt.Printf("rivet %s", version)
 	}

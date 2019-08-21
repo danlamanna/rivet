@@ -8,7 +8,8 @@ import (
 type GirderID string
 
 type GirderObject struct {
-	ID GirderID `json:"_id"`
+	ID   GirderID `json:"_id"`
+	Name string   `json:"name"`
 }
 
 type GirderTokenResponse struct {

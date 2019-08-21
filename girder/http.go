@@ -4,7 +4,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"io/ioutil"
@@ -90,6 +92,32 @@ func GetBasicAuth(ctx *Context, auth string, url string, success interface{}, fa
 	defer response.Body.Close()
 
 	decodeResponse(response, success, failure)
+
+	return response, nil
+}
+func GetDownload(ctx *Context, url string, file *os.File) (*http.Response, error) {
+	client := retryablehttp.NewClient()
+	if ctx.Logger.Level <= logrus.TraceLevel {
+		client.Logger = log.New(ioutil.Discard, "", 0)
+		client.RequestLogHook = logRequest(ctx)
+	}
+	request, err := retryablehttp.NewRequest("GET", fmt.Sprintf("%s/%s", ctx.URL, url), nil)
+
+	if err != nil {
+		return nil, err
+	}
+
+	addBaseHeaders(ctx, request)
+
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	_, err = io.Copy(file, response.Body)
+	if err != nil {
+		return response, err
+	}
 
 	return response, nil
 }

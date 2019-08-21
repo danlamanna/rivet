@@ -78,3 +78,54 @@ func ItemFiles(ctx *Context, itemID GirderID) []GirderFile {
 	}
 	return *files
 }
+
+func Folders(ctx *Context, folderID GirderID) []GirderObject {
+	folders := make([]GirderObject, 0)
+	httpErr := new(GirderError)
+	offset := 0
+	limit := 50
+	for {
+		pageFolders := make([]GirderObject, 0)
+		_, err := Get(ctx, fmt.Sprintf("folder?parentType=folder&parentId=%s&offset=%d&limit=%d", folderID, offset, limit), &pageFolders, httpErr)
+
+		if err != nil {
+			return nil
+		} else if httpErr.Message != "" {
+			fmt.Printf(httpErr.Message)
+			return nil
+		}
+
+		if len(pageFolders) == 0 {
+			break
+		} else {
+			folders = append(folders, pageFolders...)
+		}
+		offset += limit
+	}
+	return folders
+}
+func Items(ctx *Context, folderID GirderID) []GirderObject {
+	items := make([]GirderObject, 0)
+	httpErr := new(GirderError)
+	offset := 0
+	limit := 50
+	for {
+		pageItems := make([]GirderObject, 0)
+		_, err := Get(ctx, fmt.Sprintf("item?folderId=%s&offset=%d&limit=%d", folderID, offset, limit), &pageItems, httpErr)
+
+		if err != nil {
+			return nil
+		} else if httpErr.Message != "" {
+			fmt.Printf(httpErr.Message)
+			return nil
+		}
+
+		if len(pageItems) == 0 {
+			break
+		} else {
+			items = append(items, pageItems...)
+		}
+		offset += limit
+	}
+	return items
+}

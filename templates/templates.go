@@ -1,11 +1,12 @@
 package templates
 
 var DefaultUsageTemplate = `NAME
-	rivet - a utility for syncing files to girder
+	rivet - a utility for syncing files to and from girder
 
 SYNOPSIS
 	rivet configure
 	rivet sync source-directory girder://girder-folder-id
+	rivet sync girder://girder-folder-id destination-directory
 	rivet version
 
 CONFIGURATION
@@ -52,12 +53,13 @@ NOTES
 `
 var SyncUsageTemplate = `SYNOPSIS
 	rivet sync source-directory girder://girder-folder-id
+	rivet sync girder://girder-folder-id destination-directory
 
 DESCRIPTION
 	The sync command will copy files and folders from a local machine to a 
-	folder on a remote girder instance. Sync uses the size of files to determine
-	whether it can skip sending the data to the remote. Note that symbolic
-	links will be skipped.
+	folder on a remote girder instance, or vice versa. Sync uses the size of
+	files to determine whether it can skip sending the data to the remote.
+	Note that symbolic links will be skipped.
 
 	The sync command requires a URL and set of credentials to use for connecting
 	to the remote. These can be preconfigured with rivet configure, or passed 
@@ -72,8 +74,8 @@ USAGE
 	folder with the ID of 5d3bf0f6877dfcc902333a40. That is, it will make the
 	girder folder appear the same as local-folder.
 
-	Running an identical command a second time should result in no changes, assuming
-	the local and remote haven't been modified by any other tools.
+	Running an identical command a second time should result in no changes,
+	assuming the local and remote haven't been modified by any other tools.
 
 NOTES
 	Environment variables such as RIVET_AUTH and RIVET_URL, as well as flags, will
