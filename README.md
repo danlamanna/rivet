@@ -1,6 +1,8 @@
 # rivet
 a tiny cli for syncing a directory with a girder instance
 
+[![asciicast](https://asciinema.org/a/263615.svg)](https://asciinema.org/a/263615)
+
 # installation
 
 ## mac
