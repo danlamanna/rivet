@@ -91,6 +91,11 @@ rivet help <subcommand>`)
 		girderCtx := new(girder.Context)
 		girderCtx.URL = validURL
 		girderCtx.Logger = logrus.New()
+		girderCtx.Logger.SetFormatter(&log.TextFormatter{
+			DisableLevelTruncation: true,
+			PadLevelText: true,
+			FullTimestamp: true,
+		})
 		if err = girderCtx.CheckMinimumVersion(); err != nil {
 			log.Fatal(err)
 		}
@@ -149,6 +154,12 @@ rivet help <subcommand>`)
 		girderCtx.Auth = *auth
 		girderCtx.URL = validURL
 		girderCtx.Logger = logrus.New()
+
+		girderCtx.Logger.SetFormatter(&log.TextFormatter{
+			DisableLevelTruncation: true,
+			PadLevelText: true,
+			FullTimestamp: true,
+		})
 		girderCtx.ResourceMap = make(girder.ResourceMap)
 		girderCtx.Destination = strings.TrimPrefix(*dest, "girder://")
 		if *verbose >= 2 {

@@ -133,13 +133,6 @@ func buildResourceMap(ctx *girder.Context, baseDir string) (int, int) {
 			return nil
 		}
 
-		if strings.Contains(filepath, "modules") {
-			return nil
-		}
-		if strings.Contains(filepath, "testdata") {
-			return nil
-		}
-
 		fileType := ""
 		if info.IsDir() {
 			fileType = "directory"
@@ -187,10 +180,10 @@ func Upload(ctx *girder.Context, source string, destination girder.GirderID) {
 		ctx.Logger.Fatalf("failed to retrieve destination folder, err: %s", httpErr.Message)
 	}
 
-	ctx.Logger.Debug("building remote girder directories")
+	ctx.Logger.Info("building remote girder directories")
 	buildGirderDirs(ctx, source)
 
-	ctx.Logger.Debug("building remote girder items")
+	ctx.Logger.Info("building remote girder items")
 
 	numJobs := 0
 	var mutex sync.Mutex
@@ -247,7 +240,7 @@ func Upload(ctx *girder.Context, source string, destination girder.GirderID) {
 		<-results
 	}
 
-	ctx.Logger.Debug("syncing blobs")
+	ctx.Logger.Info("syncing blobs")
 
 	numJobs = 0
 	filesToUpload := make(chan *girder.PathAndResource, numFiles)
