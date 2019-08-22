@@ -11,14 +11,13 @@ import (
 	"github.com/danlamanna/rivet/girder"
 	"github.com/danlamanna/rivet/templates"
 	"github.com/danlamanna/rivet/transfer"
+	"github.com/danlamanna/rivet/version"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
-	version = "undefined"
-
 	app     = kingpin.New("rivet", "sync files to girder")
 	auth    = app.Flag("auth", "Authentication credentials, can be username:password, a token, or an api key`").Envar("RIVET_AUTH").Short('a').String()
 	url     = app.Flag("url", "URL of the girder instance, e.g. data.kitware.com, somedomain.com/api/v1").Envar("RIVET_URL").Short('u').String()
@@ -36,7 +35,7 @@ var (
 func main() {
 	app.HelpFlag.Short('h')
 	app.UsageTemplate(templates.DefaultUsageTemplate)
-	app.Version(version)
+	app.Version(version.Version)
 
 	// kingpin doesn't allow help for subcommands, so we hook in before parsing
 	// to possible show help pages
@@ -93,8 +92,8 @@ rivet help <subcommand>`)
 		girderCtx.Logger = logrus.New()
 		girderCtx.Logger.SetFormatter(&log.TextFormatter{
 			DisableLevelTruncation: true,
-			PadLevelText: true,
-			FullTimestamp: true,
+			PadLevelText:           true,
+			FullTimestamp:          true,
 		})
 		if err = girderCtx.CheckMinimumVersion(); err != nil {
 			log.Fatal(err)
@@ -157,8 +156,8 @@ rivet help <subcommand>`)
 
 		girderCtx.Logger.SetFormatter(&log.TextFormatter{
 			DisableLevelTruncation: true,
-			PadLevelText: true,
-			FullTimestamp: true,
+			PadLevelText:           true,
+			FullTimestamp:          true,
 		})
 		girderCtx.ResourceMap = make(girder.ResourceMap)
 		girderCtx.Destination = strings.TrimPrefix(*dest, "girder://")
@@ -183,6 +182,9 @@ rivet help <subcommand>`)
 			download.Download(girderCtx, girder.GirderID(strings.TrimPrefix(*source, "girder://")), *dest)
 		}
 	} else if res == "version" {
-		fmt.Printf("rivet %s", version)
+		fmt.Printf("rivet       v%s\n", version.Version)
+		fmt.Printf("built:      %s\n", version.BuildDate)
+		fmt.Printf("go version: %s\n", version.GoVersion)
+		fmt.Printf("os/arch:    %s\n", version.OsArch)
 	}
 }

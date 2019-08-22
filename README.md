@@ -23,3 +23,14 @@ rivet sync --auth "username:password" --url data.kitware.com path/to/local/dir g
 ```
 
 to avoid passing credentials multiple times, use `rivet configure`.
+
+# limitations
+Due to the difficulty in representing Girder items in the context of a POSIX filesystem, items 
+with 0 files and items with multiple files are ignored. There is no way to use rivet to upload
+or download these.
+
+Additionally, rivet doesn't attempt to sync item or folder metadata. It's purely a tool for
+syncing blobs of data to their respective folders.
+
+If you require support for these use cases, consider a more comprehensive tool such as
+[girder-client](https://pypi.org/project/girder-client/).
