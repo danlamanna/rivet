@@ -12,12 +12,13 @@ import (
 	"io/ioutil"
 	"log"
 
+	"github.com/danlamanna/rivet/version"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/sirupsen/logrus"
 )
 
 func addBaseHeaders(ctx *Context, request *retryablehttp.Request) {
-	request.Header.Add("User-Agent", "rivet/0.0.1")
+	request.Header.Add("User-Agent", fmt.Sprintf("rivet/%s", version.Version))
 	request.Header.Add("Girder-Token", ctx.Auth)
 }
 
@@ -81,7 +82,7 @@ func GetBasicAuth(ctx *Context, auth string, url string, success interface{}, fa
 		return nil, err
 	}
 
-	request.Header.Add("User-Agent", "rivet/0.0.1")
+	request.Header.Add("User-Agent", fmt.Sprintf("rivet/%s", version.Version))
 	authHeader := base64.StdEncoding.EncodeToString([]byte(auth))
 	request.Header.Add("Authorization", fmt.Sprintf("Basic %s", authHeader))
 
