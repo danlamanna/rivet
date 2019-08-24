@@ -1,0 +1,19 @@
+---
+version: "3.7"
+
+services:
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017"
+    volumes:
+      - "/data/db"
+
+  girder:
+    build:
+      context: girder
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    links:
+      - "mongodb:mongodb"

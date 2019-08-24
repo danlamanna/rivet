@@ -8,22 +8,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// func TestMax(t *testing.T) {
-// 	if max(5, 6) != 6 {
-// 		t.Error("dun work")
-// 	}
-// }
+func TestUpload(t *testing.T) {
+	dest := "girder://5d5f91e414f6f916735faffc"
 
-func BenchmarkUpload(b *testing.B) {
-	dest := "girder://5d3bf0f6877dfcc902333a40"
-	for n := 0; n < b.N; n++ {
-
-		Upload(&girder.Context{
-			Auth:        "thhUL4H6dkcBQuVsz7n5vVVjrDr3RJgiw8A4CaGjEVxhEO0ozjG7FVYld34tpm3Y",
-			URL:         "https://data.kitware.com/api/v1",
-			Logger:      logrus.New(),
-			Destination: strings.TrimPrefix(dest, "girder://"),
-			ResourceMap: make(girder.ResourceMap),
-		}, "/Users/dan/p/rivet/.git", girder.GirderID(dest))
-	}
+	Upload(&girder.Context{
+		Auth:        "admin:password",
+		URL:         "http://localhost:8080/api/v1",
+		Logger:      logrus.New(),
+		Destination: strings.TrimPrefix(dest, "girder://"),
+		ResourceMap: make(girder.ResourceMap),
+	}, "etc/testdata/big_files", girder.GirderID(dest))
 }
