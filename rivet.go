@@ -69,6 +69,11 @@ rivet help <subcommand>`)
 		os.Exit(1)
 	}
 
+	if newerVersion, _ := version.IsNewVersionAvailable(); newerVersion != "" {
+		fmt.Printf("Your version of rivet (v%s) is out of date.\n", version.Version)
+		fmt.Printf("Download the newest version (v%s) from https://github.com/danlamanna/rivet/releases.\n\n", newerVersion)
+	}
+
 	if res == "configure" {
 		reader := bufio.NewReader(os.Stdin)
 		var promptedURL string
@@ -183,6 +188,7 @@ rivet help <subcommand>`)
 		}
 	} else if res == "version" {
 		fmt.Printf("rivet       v%s\n", version.Version)
+		fmt.Printf("build:      %s\n", version.GitCommit)
 		fmt.Printf("built:      %s\n", version.BuildDate)
 		fmt.Printf("go version: %s\n", version.GoVersion)
 		fmt.Printf("os/arch:    %s\n", version.OsArch)
