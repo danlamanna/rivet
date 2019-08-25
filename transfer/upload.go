@@ -86,10 +86,10 @@ func buildGirderDirsConcurrent(ctx *girder.Context) {
 func _uploadBytes(ctx *girder.Context, upload girder.GirderID, fullPath string, fi os.FileInfo) {
 
 	file, err := os.Open(fullPath)
-	if err != nil {
-		ctx.Logger.Warnf("failed to access %s, skipping. err: %s", fullPath, err)
+    if err != nil {
+        ctx.Logger.Warnf("failed to access %s, skipping. err: %s", fullPath, err)
 		return
-	}
+    }
 	defer file.Close()
 
 	totalChunks := util.Max(0, fi.Size()/maxChunkSize) + 1
