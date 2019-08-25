@@ -34,7 +34,7 @@ func buildGirderDirs(ctx *girder.Context, baseDir string) {
 	}
 }
 
-func buildGirderDirsConcurrent(ctx *girder.Context) {
+func buildGirderFoldersConcurrent(ctx *girder.Context) {
 	// Adds all sibling folders concurrently.
 	rootDirsToBuild := make([]*girder.Resource, 0)
 	var numDirs int
@@ -235,7 +235,7 @@ func Upload(ctx *girder.Context, source string, destination girder.GirderID) {
 	ctx.Logger.Info("building remote girder directories")
 
 	//buildGirderDirs(ctx, source)
-	buildGirderDirsConcurrent(ctx)
+	buildGirderFoldersConcurrent(ctx)
 
 	ctx.Logger.Info("done building remote girder directories")
 
