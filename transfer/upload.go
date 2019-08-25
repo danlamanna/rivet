@@ -9,9 +9,9 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
-	"strings"
-	"sync"
-
+	//"strings"
+	//"sync"
+    //"http"
 	"github.com/danlamanna/rivet/girder"
 	"github.com/danlamanna/rivet/util"
 )
@@ -34,6 +34,114 @@ func buildGirderDirs(ctx *girder.Context, baseDir string) {
 	for _, v := range dirsToBuild {
 		girder.GetOrCreateFolderRecursive(ctx, v)
 	}
+}
+
+// first round get the roots and do those
+// after that can get each set of children from parents
+
+func GetOrCreateFolder(ctx *girder.Context, folderResource *girder.Resource) (girder.GirderID, error) {
+	//ctx.Logger.Debugf("GOCF %s", folderResource)
+	//fmt.Println("GOCF", folderResource)
+	//fmt.Println("parentID", string(folderResource.GirderParentID))
+	//xxparentID := girder.GirderID(ctx.Destination)
+	
+	girderFolder := new(girder.GirderObject)
+	/*
+	folderName := path.Base(folderResource.Path)
+    httpErr := new(girder.GirderError)
+    url := fmt.Sprintf("folder?parentType=folder&reuseExisting=true&name=%s&parentId=%s", url.QueryEscape(folderName), string(folderResource.GirderParentID))
+    _, err := girder.Post(ctx, url, nil, girderFolder, httpErr)
+	if err != nil {
+		ctx.Logger.Errorf("problem creating %s, err: %s", folderName, err)
+		folderResource.GirderType = "folder"
+		folderResource.SkipSync = true
+		folderResource.SkipReason = err.Error()
+		return "", err
+	} else if httpErr.Message != "" {
+		ctx.Logger.Errorf("problem creating %s, err: %s", folderName, httpErr.Message)
+		folderResource.GirderType = "folder"
+		folderResource.SkipSync = true
+		folderResource.SkipReason = httpErr.Error()
+		return "", httpErr
+	}
+	folderResource.GirderID = girderFolder.ID
+	*/
+	// mocking calls to girder server
+	path.Base(folderResource.Path)
+	folderResource.GirderType = "folder"
+	folderResource.GirderID = "mock"
+	// mock
+
+
+
+
+	//fmt.Println("GOCF after", folderResource)
+	return girderFolder.ID, nil
+}
+
+func buildGirderDirsP(ctx *girder.Context) {
+    //fmt.Println("parallel")
+
+	rootDirsToBuild := make([]*girder.Resource, 0)
+	var numRootDirs, numDirs, numFiles int
+	for _, v := range ctx.ResourceMap {
+		if v.Type == "file" {
+            numFiles++
+		} else if v.Type == "directory" {
+			numDirs++
+    		parent := ctx.ResourceMap.Parent(v)
+	    	if parent == nil {
+				rootDirsToBuild = append(rootDirsToBuild, v)
+				numRootDirs++
+			}
+		}
+	}
+    fmt.Println("about to process root nodes and total dirs", numRootDirs, numDirs)
+
+	resourceJobs := make(chan *girder.Resource, numDirs)
+	resourceResults := make(chan bool, numDirs)
+    fmt.Println("length, capacity of resourceJobs", len(resourceJobs), cap(resourceJobs))
+	 
+	numWorkers := 10
+    for w := 0; w < numWorkers; w++ {
+		go func (id int, jobs chan *girder.Resource, results chan<- bool) {
+			for resourceJob := range jobs {
+				//fmt.Println(id, "postgrab length, capacity of resourceJobs", len(jobs), cap(jobs))
+				if resourceJob != nil {
+					//fmt.Printf("worker id %d", id)
+					//fmt.Println(resourceJob)
+					GetOrCreateFolder(ctx, resourceJob)
+					// now add all children of this folder to the queue for concurrent processing
+					fmt.Println("will add num children", len(resourceJob.Children))
+					for _, v := range resourceJob.Children {
+						currentChild := v
+						currentChild.GirderParentID = girder.GirderID(resourceJob.GirderID)
+						//fmt.Println(id, "child push", v.Path)
+						go func () { 
+							fmt.Println(id, "prepush length, capacity of resourceJobs", len(jobs), cap(jobs), currentChild.Path)
+							jobs<-currentChild
+						}()
+						//jobs<-currentChild
+						//fmt.Println(id, "child push returned", v.Path)
+					}
+					results <- true
+				}
+			}
+		}(w, resourceJobs, resourceResults)	
+    }
+
+	fmt.Println("root add", len(rootDirsToBuild))
+	for _, v := range rootDirsToBuild {
+        v.GirderParentID = girder.GirderID(ctx.Destination)
+		//fmt.Println("Adding to queue:", v)
+		resourceJobs<-v
+	}
+	
+	for a := 0; a < numDirs; a++ {
+		<-resourceResults
+		if a % 50 == 0 { fmt.Println("Got results ", a) }
+    }
+
 }
 
 func _uploadBytes(ctx *girder.Context, upload girder.GirderID, fullPath string, fi os.FileInfo) {
@@ -124,6 +232,7 @@ func buildResourceMap(ctx *girder.Context, baseDir string) (int, int) {
 	numDirs, numFiles := 0, 0
 
 	err := filepath.Walk(baseDir, func(filepath string, info os.FileInfo, err error) error {
+        //ctx.Logger.Warnf("%s", filepath)
 		if err != nil {
 			ctx.Logger.Warnf("failed to access %s, skipping", filepath)
 			return nil
@@ -144,10 +253,15 @@ func buildResourceMap(ctx *girder.Context, baseDir string) (int, int) {
 			numFiles++
 		}
 
-		ctx.ResourceMap[filepath] = &girder.Resource{
+		currentNode := &girder.Resource{
 			Path: filepath,
 			Size: info.Size(),
 			Type: fileType,
+		}
+		ctx.ResourceMap[filepath] = currentNode
+        parent := ctx.ResourceMap.Parent(currentNode)
+		if parent != nil {
+			parent.Children = append(parent.Children, currentNode)
 		}
 
 		return nil
@@ -181,8 +295,13 @@ func Upload(ctx *girder.Context, source string, destination girder.GirderID) {
 	}
 
 	ctx.Logger.Info("building remote girder directories")
-	buildGirderDirs(ctx, source)
+	
+	//buildGirderDirs(ctx, source)
+	buildGirderDirsP(ctx)
 
+	ctx.Logger.Info("done building remote girder directories")
+
+/*
 	ctx.Logger.Info("building remote girder items")
 
 	numJobs := 0
@@ -306,6 +425,6 @@ func Upload(ctx *girder.Context, source string, destination girder.GirderID) {
 			ctx.Logger.Info(failure)
 		}
 	}
-
+*/
 	return
 }
