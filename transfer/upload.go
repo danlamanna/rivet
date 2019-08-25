@@ -41,7 +41,7 @@ func buildGirderDirsConcurrent(ctx *girder.Context) {
 	for _, v := range ctx.ResourceMap {
 		if v.Type == "directory" {
 			numDirs++
-	    	if ctx.ResourceMap.Parent(v) == nil {
+			if ctx.ResourceMap.Parent(v) == nil {
 				rootDirsToBuild = append(rootDirsToBuild, v)
 			}
 		}
@@ -51,8 +51,8 @@ func buildGirderDirsConcurrent(ctx *girder.Context) {
 	resourceResults := make(chan bool, numDirs)
 
 	numWorkers := 10
-    for w := 0; w < numWorkers; w++ {
-		go func (id int) {
+	for w := 0; w < numWorkers; w++ {
+		go func(id int) {
 			for resourceJob := range resourceJobs {
 				if resourceJob != nil {
 					girder.GetOrCreateFolder(ctx, resourceJob)
@@ -61,24 +61,24 @@ func buildGirderDirsConcurrent(ctx *girder.Context) {
 					for _, v := range resourceJob.ChildrenFolders {
 						currentChild := v
 						currentChild.GirderParentID = girder.GirderID(resourceJob.GirderID)
-						resourceJobs<-currentChild
+						resourceJobs <- currentChild
 					}
 					resourceResults <- true
 				}
 			}
 		}(w)
-    }
+	}
 
 	// Start uploading all root folders concurrently.
 	for _, v := range rootDirsToBuild {
-        v.GirderParentID = girder.GirderID(ctx.Destination)
-		resourceJobs<-v
+		v.GirderParentID = girder.GirderID(ctx.Destination)
+		resourceJobs <- v
 	}
 
 	var a int
 	for a = 0; a < numDirs; a++ {
 		<-resourceResults
-    }
+	}
 	fmt.Println("Got results ", a)
 
 }
@@ -86,10 +86,10 @@ func buildGirderDirsConcurrent(ctx *girder.Context) {
 func _uploadBytes(ctx *girder.Context, upload girder.GirderID, fullPath string, fi os.FileInfo) {
 
 	file, err := os.Open(fullPath)
-    if err != nil {
-        ctx.Logger.Warnf("failed to access %s, skipping. err: %s", fullPath, err)
+	if err != nil {
+		ctx.Logger.Warnf("failed to access %s, skipping. err: %s", fullPath, err)
 		return
-    }
+	}
 	defer file.Close()
 
 	totalChunks := util.Max(0, fi.Size()/maxChunkSize) + 1
@@ -171,7 +171,7 @@ func buildResourceMap(ctx *girder.Context, baseDir string) (int, int) {
 	numDirs, numFiles := 0, 0
 
 	err := filepath.Walk(baseDir, func(filepath string, info os.FileInfo, err error) error {
-        if err != nil {
+		if err != nil {
 			ctx.Logger.Warnf("failed to access %s, skipping", filepath)
 			return nil
 		}
@@ -197,7 +197,7 @@ func buildResourceMap(ctx *girder.Context, baseDir string) (int, int) {
 			Type: fileType,
 		}
 		ctx.ResourceMap[filepath] = currentNode
-        parent := ctx.ResourceMap.Parent(currentNode)
+		parent := ctx.ResourceMap.Parent(currentNode)
 		if parent != nil && info.IsDir() {
 			parent.ChildrenFolders = append(parent.ChildrenFolders, currentNode)
 		}
@@ -239,130 +239,130 @@ func Upload(ctx *girder.Context, source string, destination girder.GirderID) {
 
 	ctx.Logger.Info("done building remote girder directories")
 
-/*
-	ctx.Logger.Info("building remote girder items")
+	/*
+		ctx.Logger.Info("building remote girder items")
 
-	numJobs := 0
-	var mutex sync.Mutex
-	itemsToUpload := make(chan *girder.PathAndResource, numFiles)
-	results := make(chan bool, numFiles)
+		numJobs := 0
+		var mutex sync.Mutex
+		itemsToUpload := make(chan *girder.PathAndResource, numFiles)
+		results := make(chan bool, numFiles)
 
-	// spawn 10 workers for building items
-	for w := 1; w <= 10; w++ {
-		go func() {
-			for pathAndResource := range itemsToUpload {
-				parent := ctx.ResourceMap.Parent(pathAndResource.Resource)
+		// spawn 10 workers for building items
+		for w := 1; w <= 10; w++ {
+			go func() {
+				for pathAndResource := range itemsToUpload {
+					parent := ctx.ResourceMap.Parent(pathAndResource.Resource)
 
-				// default to the root sync dest, override if there's a parent
-				parentID := girder.GirderID(strings.TrimPrefix(string(destination), "girder://"))
-				if parent != nil {
-					parentID = parent.GirderID
-				}
-				if parent != nil && parent.SkipSync {
+					// default to the root sync dest, override if there's a parent
+					parentID := girder.GirderID(strings.TrimPrefix(string(destination), "girder://"))
+					if parent != nil {
+						parentID = parent.GirderID
+					}
+					if parent != nil && parent.SkipSync {
+						mutex.Lock()
+						ctx.ResourceMap[pathAndResource.Path].SkipSync = true
+						ctx.ResourceMap[pathAndResource.Path].SkipReason = parent.SkipReason
+						mutex.Unlock()
+						ctx.Logger.Warnf("skipping sync of %s because parent failed to be created", parent.Path)
+						results <- true
+						continue
+					}
+					itemID, err := girder.GetOrCreateItem(ctx, parentID, filepath.Base(pathAndResource.Path))
 					mutex.Lock()
-					ctx.ResourceMap[pathAndResource.Path].SkipSync = true
-					ctx.ResourceMap[pathAndResource.Path].SkipReason = parent.SkipReason
+					if err != nil {
+						ctx.ResourceMap[pathAndResource.Path].SkipSync = true
+						ctx.ResourceMap[pathAndResource.Path].SkipReason = err.Error()
+						ctx.Logger.Error(err)
+					} else {
+						ctx.ResourceMap[pathAndResource.Path].GirderID = itemID
+					}
 					mutex.Unlock()
-					ctx.Logger.Warnf("skipping sync of %s because parent failed to be created", parent.Path)
 					results <- true
-					continue
 				}
-				itemID, err := girder.GetOrCreateItem(ctx, parentID, filepath.Base(pathAndResource.Path))
-				mutex.Lock()
-				if err != nil {
-					ctx.ResourceMap[pathAndResource.Path].SkipSync = true
-					ctx.ResourceMap[pathAndResource.Path].SkipReason = err.Error()
-					ctx.Logger.Error(err)
-				} else {
-					ctx.ResourceMap[pathAndResource.Path].GirderID = itemID
-				}
-				mutex.Unlock()
-				results <- true
+			}()
+		}
+
+		for filepath, resource := range ctx.ResourceMap {
+			if resource.Type == "file" {
+				f := new(girder.PathAndResource)
+				f.Path = filepath
+				f.Resource = resource
+				numJobs++
+				itemsToUpload <- f
 			}
-		}()
-	}
-
-	for filepath, resource := range ctx.ResourceMap {
-		if resource.Type == "file" {
-			f := new(girder.PathAndResource)
-			f.Path = filepath
-			f.Resource = resource
-			numJobs++
-			itemsToUpload <- f
 		}
-	}
-	close(itemsToUpload)
+		close(itemsToUpload)
 
-	for a := 0; a < numJobs; a++ {
-		<-results
-	}
+		for a := 0; a < numJobs; a++ {
+			<-results
+		}
 
-	ctx.Logger.Info("syncing blobs")
+		ctx.Logger.Info("syncing blobs")
 
-	numJobs = 0
-	filesToUpload := make(chan *girder.PathAndResource, numFiles)
-	results = make(chan bool, numFiles)
+		numJobs = 0
+		filesToUpload := make(chan *girder.PathAndResource, numFiles)
+		results = make(chan bool, numFiles)
 
-	// spawn 10 workers for uploading files
-	for w := 1; w <= 10; w++ {
-		go func() {
-			for pathAndResource := range filesToUpload {
-				if pathAndResource != nil {
-					uploadFile(ctx, pathAndResource.Resource.GirderID, pathAndResource.Path, path.Base(pathAndResource.Path))
+		// spawn 10 workers for uploading files
+		for w := 1; w <= 10; w++ {
+			go func() {
+				for pathAndResource := range filesToUpload {
+					if pathAndResource != nil {
+						uploadFile(ctx, pathAndResource.Resource.GirderID, pathAndResource.Path, path.Base(pathAndResource.Path))
+					}
+					results <- true
 				}
-				results <- true
+			}()
+		}
+
+		for filepath, resource := range ctx.ResourceMap {
+			if resource.Type == "file" && resource.GirderID != "" {
+				f := new(girder.PathAndResource)
+				f.Path = filepath
+				f.Resource = resource
+				numJobs++
+				filesToUpload <- f
+			} else if resource.Type == "file" && resource.GirderID == "" {
+				// it was printed as an error above
+				ctx.Logger.Infof("skipping sync of %s because parent item creation failed.", filepath)
+				numJobs++
+				filesToUpload <- nil
 			}
-		}()
-	}
-
-	for filepath, resource := range ctx.ResourceMap {
-		if resource.Type == "file" && resource.GirderID != "" {
-			f := new(girder.PathAndResource)
-			f.Path = filepath
-			f.Resource = resource
-			numJobs++
-			filesToUpload <- f
-		} else if resource.Type == "file" && resource.GirderID == "" {
-			// it was printed as an error above
-			ctx.Logger.Infof("skipping sync of %s because parent item creation failed.", filepath)
-			numJobs++
-			filesToUpload <- nil
 		}
-	}
-	close(filesToUpload)
+		close(filesToUpload)
 
-	for a := 0; a < numJobs; a++ {
-		<-results
-	}
-
-	ctx.Logger.Info("")
-
-	ctx.Logger.Info("summary:")
-
-	var numSucceeded int
-	var numFailed int
-
-	failureSummary := make([]string, 0)
-	for k, v := range ctx.ResourceMap {
-		if v.SkipSync {
-			numFailed++
-			failureSummary = append(failureSummary, fmt.Sprintf("%s: %s", k, v.SkipReason))
-		} else {
-			numSucceeded++
+		for a := 0; a < numJobs; a++ {
+			<-results
 		}
-	}
 
-	sort.Slice(failureSummary, func(i, j int) bool { return failureSummary[i] < failureSummary[j] })
+		ctx.Logger.Info("")
 
-	ctx.Logger.Infof("successfully synced %d files/folders", numSucceeded)
+		ctx.Logger.Info("summary:")
 
-	if numFailed > 0 {
-		ctx.Logger.Infof("failed to sync %d files/folders:", numFailed)
+		var numSucceeded int
+		var numFailed int
 
-		for _, failure := range failureSummary {
-			ctx.Logger.Info(failure)
+		failureSummary := make([]string, 0)
+		for k, v := range ctx.ResourceMap {
+			if v.SkipSync {
+				numFailed++
+				failureSummary = append(failureSummary, fmt.Sprintf("%s: %s", k, v.SkipReason))
+			} else {
+				numSucceeded++
+			}
 		}
-	}
-*/
+
+		sort.Slice(failureSummary, func(i, j int) bool { return failureSummary[i] < failureSummary[j] })
+
+		ctx.Logger.Infof("successfully synced %d files/folders", numSucceeded)
+
+		if numFailed > 0 {
+			ctx.Logger.Infof("failed to sync %d files/folders:", numFailed)
+
+			for _, failure := range failureSummary {
+				ctx.Logger.Info(failure)
+			}
+		}
+	*/
 	return
 }
