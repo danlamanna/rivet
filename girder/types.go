@@ -41,8 +41,8 @@ type Resource struct {
 	Path string
 	Size int64
 	Type string
-	Children []*Resource
-	
+	ChildrenFolders []*Resource // only for folders
+
 	GirderParentID GirderID
 	GirderID   GirderID
 	GirderType string
