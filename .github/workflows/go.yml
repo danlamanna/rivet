@@ -26,3 +26,7 @@ jobs:
     - name: Check Format
       run: |
         diff -u <(echo -n) <(gofmt -d -e -s .)
+
+    - name: Run tests
+      run: |
+        go test -count 1 -timeout 30s ./...
