@@ -25,9 +25,9 @@ var (
 
 	configure = app.Command("configure", "")
 
-	sync   = app.Command("sync", "sync a local directory to a girder folder")
-	source = sync.Arg("source", "source directory").Required().String()
-	dest   = sync.Arg("dest", "dest girder folder").Required().String()
+	sync   = app.Command("sync", "sync a local directory to or from a girder folder")
+	source = sync.Arg("source", "source directory or girder folder").Required().String()
+	dest   = sync.Arg("dest", "dest directory or girder folder").Required().String()
 
 	versionCmd = app.Command("version", "")
 )
