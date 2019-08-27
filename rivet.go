@@ -97,7 +97,6 @@ rivet help <subcommand>`)
 		girderCtx.Logger = logrus.New()
 		girderCtx.Logger.SetFormatter(&log.TextFormatter{
 			DisableLevelTruncation: true,
-			PadLevelText:           true,
 			FullTimestamp:          true,
 		})
 		if err = girderCtx.CheckMinimumVersion(); err != nil {
@@ -161,7 +160,6 @@ rivet help <subcommand>`)
 
 		girderCtx.Logger.SetFormatter(&log.TextFormatter{
 			DisableLevelTruncation: true,
-			PadLevelText:           true,
 			FullTimestamp:          true,
 		})
 		girderCtx.ResourceMap = make(girder.ResourceMap)
