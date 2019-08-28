@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/danlamanna/rivet/config"
-	"github.com/danlamanna/rivet/download"
 	"github.com/danlamanna/rivet/girder"
 	"github.com/danlamanna/rivet/templates"
 	"github.com/danlamanna/rivet/transfer"
@@ -195,7 +194,7 @@ func syncCommand(ctx *girder.Context) {
 	if destIsGirder {
 		transfer.Upload(ctx, *source, girder.GirderID(*dest))
 	} else if sourceIsGirder {
-		download.Download(ctx, girder.GirderID(strings.TrimPrefix(*source, "girder://")), *dest)
+		transfer.Download(ctx, girder.GirderID(strings.TrimPrefix(*source, "girder://")), *dest)
 	}
 }
 
