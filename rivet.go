@@ -111,7 +111,7 @@ rivet help <subcommand>`)
 			log.Fatal(err)
 		}
 
-		syncCommand(ctx)
+		syncCommand(ctx, source, dest)
 	case "version":
 		versionCommand()
 	}
@@ -157,7 +157,7 @@ func configureCommand(ctx *girder.Context) {
 	config.WriteDefaultProfile(promptedAuth, validURL)
 }
 
-func syncCommand(ctx *girder.Context) {
+func syncCommand(ctx *girder.Context, source *string, dest *string) {
 	*source = strings.TrimSuffix(*source, "/")
 	*dest = strings.TrimSuffix(*dest, "/")
 
