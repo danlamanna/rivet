@@ -54,6 +54,13 @@ func main() {
 		DisableLevelTruncation: true,
 		FullTimestamp:          true,
 	})
+	if *verbose >= 2 {
+		ctx.Logger.Level = logrus.TraceLevel
+	} else if *verbose == 1 {
+		ctx.Logger.Level = logrus.DebugLevel
+	} else {
+		ctx.Logger.Level = logrus.InfoLevel
+	}
 
 	profile, err := config.ReadDefaultProfile()
 	if err != nil {
@@ -151,7 +158,6 @@ func configureCommand(ctx *girder.Context) {
 }
 
 func syncCommand(ctx *girder.Context) {
-
 	*source = strings.TrimSuffix(*source, "/")
 	*dest = strings.TrimSuffix(*dest, "/")
 
@@ -176,14 +182,7 @@ func syncCommand(ctx *girder.Context) {
 
 	ctx.ResourceMap = make(girder.ResourceMap)
 	ctx.Destination = strings.TrimPrefix(*dest, "girder://")
-	if *verbose >= 2 {
-		ctx.Logger.Level = logrus.TraceLevel
-	} else if *verbose == 1 {
 
-		ctx.Logger.Level = logrus.DebugLevel
-	} else {
-		ctx.Logger.Level = logrus.InfoLevel
-	}
 	if err := ctx.CheckMinimumVersion(); err != nil {
 		log.Fatal(err)
 	}
