@@ -1,15 +1,13 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
-	"strings"
 
+	"github.com/danlamanna/rivet/commands"
 	"github.com/danlamanna/rivet/config"
 	"github.com/danlamanna/rivet/girder"
 	"github.com/danlamanna/rivet/templates"
-	"github.com/danlamanna/rivet/transfer"
 	"github.com/danlamanna/rivet/version"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
@@ -22,12 +20,15 @@ var (
 	url     = app.Flag("url", "URL of the girder instance, e.g. data.kitware.com, somedomain.com/api/v1").Envar("RIVET_URL").Short('u').String()
 	verbose = app.Flag("verbose", "Increase verbosity, can be passed up to two times.").Short('v').Counter()
 
+	// configure command
 	configure = app.Command("configure", "")
 
+	// sync command
 	sync   = app.Command("sync", "sync a local directory to or from a girder folder")
 	source = sync.Arg("source", "source directory or girder folder").Required().String()
 	dest   = sync.Arg("dest", "dest directory or girder folder").Required().String()
 
+	// version command
 	versionCmd = app.Command("version", "")
 )
 
@@ -48,6 +49,7 @@ func main() {
 
 	res, _ := app.Parse(os.Args[1:])
 
+	// setup context/logger
 	ctx := new(girder.Context)
 	ctx.Logger = logrus.New()
 	ctx.Logger.SetFormatter(&log.TextFormatter{
@@ -62,6 +64,7 @@ func main() {
 		ctx.Logger.Level = logrus.InfoLevel
 	}
 
+	// fill in auth/url, defaulting to the "default" profile
 	profile, err := config.ReadDefaultProfile()
 	if err != nil {
 		log.Fatal(err)
@@ -94,7 +97,7 @@ rivet help <subcommand>`)
 
 	switch res {
 	case "configure":
-		configureCommand(ctx)
+		commands.Configure(ctx)
 	case "sync":
 		if ctx.Auth == "" {
 			fmt.Println("See --auth flag")
@@ -111,96 +114,8 @@ rivet help <subcommand>`)
 			log.Fatal(err)
 		}
 
-		syncCommand(ctx, source, dest)
+		commands.Sync(ctx, source, dest)
 	case "version":
-		versionCommand()
+		commands.Version()
 	}
-
-}
-
-func configureCommand(ctx *girder.Context) {
-	reader := bufio.NewReader(os.Stdin)
-	var promptedURL string
-	for {
-		fmt.Print("girder url (e.g. data.kitware.com): ")
-		promptedURL, _ = reader.ReadString('\n')
-		promptedURL = strings.TrimSpace(promptedURL)
-
-		if promptedURL != "" {
-			break
-		}
-	}
-
-	validURL, err := girder.GetValidURL(promptedURL)
-
-	if err != nil {
-		ctx.Logger.Fatal(err)
-	}
-
-	if err = ctx.CheckMinimumVersion(); err != nil {
-		log.Fatal(err)
-	}
-	var promptedAuth string
-	for {
-		fmt.Print("auth credentials (e.g. username:password, token, api-key): ")
-		promptedAuth, _ = reader.ReadString('\n')
-		promptedAuth = strings.TrimSpace(promptedAuth)
-
-		if promptedAuth != "" {
-			break
-		}
-	}
-	ctx.Auth = promptedAuth
-	if err = ctx.ValidateAuth(); err != nil {
-		log.Fatal(err)
-	}
-	config.WriteDefaultProfile(promptedAuth, validURL)
-}
-
-func syncCommand(ctx *girder.Context, source *string, dest *string) {
-	*source = strings.TrimSuffix(*source, "/")
-	*dest = strings.TrimSuffix(*dest, "/")
-
-	sourceIsGirder := strings.HasPrefix(*source, "girder://")
-	destIsGirder := strings.HasPrefix(*dest, "girder://")
-	if sourceIsGirder && destIsGirder {
-		log.Fatal("cannot sync between two girder instances")
-	} else if !sourceIsGirder && !destIsGirder {
-		log.Fatal("cannot sync between two local directories")
-	}
-	if destIsGirder {
-		if stat, err := os.Stat(*source); err != nil {
-			if os.IsNotExist(err) {
-				log.Fatalf("source directory %s does not exist.\n", *source)
-			} else {
-				log.Fatalf("failed to access source directory %s, err: %s.\n", *source, err)
-			}
-		} else if !stat.IsDir() {
-			log.Fatalf("source %s is not a directory.\n", *source)
-		}
-	}
-
-	ctx.ResourceMap = make(girder.ResourceMap)
-	ctx.Destination = strings.TrimPrefix(*dest, "girder://")
-
-	if err := ctx.CheckMinimumVersion(); err != nil {
-		log.Fatal(err)
-	}
-	if err := ctx.ValidateAuth(); err != nil {
-		log.Fatal(err)
-	}
-
-	if destIsGirder {
-		transfer.Upload(ctx, *source, girder.GirderID(*dest))
-	} else if sourceIsGirder {
-		transfer.Download(ctx, girder.GirderID(strings.TrimPrefix(*source, "girder://")), *dest)
-	}
-}
-
-func versionCommand() {
-	fmt.Printf("rivet       v%s\n", version.Version)
-	fmt.Printf("build:      %s\n", version.GitCommit)
-	fmt.Printf("built:      %s\n", version.BuildDate)
-	fmt.Printf("go version: %s\n", version.GoVersion)
-	fmt.Printf("os/arch:    %s\n", version.OsArch)
 }
