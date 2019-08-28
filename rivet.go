@@ -49,15 +49,27 @@ func main() {
 
 	res, _ := app.Parse(os.Args[1:])
 
+	ctx := new(girder.Context)
+	ctx.Logger = logrus.New()
+	ctx.Logger.SetFormatter(&log.TextFormatter{
+		DisableLevelTruncation: true,
+		FullTimestamp:          true,
+	})
+
 	profile, err := config.ReadDefaultProfile()
 	if err != nil {
 		log.Fatal(err)
 	}
-	if *auth == "" && profile != nil {
-		auth = &profile.Auth
+	if *auth != "" {
+		ctx.Auth = *auth
+	} else if profile != nil {
+		ctx.Auth = profile.Auth
 	}
-	if *url == "" && profile != nil {
-		url = &profile.URL
+
+	if *url != "" {
+		ctx.URL = *url
+	} else if profile != nil {
+		ctx.URL = profile.URL
 	}
 
 	if res == "" {
@@ -74,121 +86,123 @@ rivet help <subcommand>`)
 		fmt.Printf("Download the newest version (v%s) from https://github.com/danlamanna/rivet/releases.\n\n", newerVersion)
 	}
 
-	if res == "configure" {
-		reader := bufio.NewReader(os.Stdin)
-		var promptedURL string
-		for {
-			fmt.Print("girder url (e.g. data.kitware.com): ")
-			promptedURL, _ = reader.ReadString('\n')
-			promptedURL = strings.TrimSpace(promptedURL)
-
-			if promptedURL != "" {
-				break
-			}
-		}
-
-		validURL, err := girder.GetValidURL(promptedURL)
-
-		if err != nil {
-			log.Fatal(err)
-		}
-		girderCtx := new(girder.Context)
-		girderCtx.URL = validURL
-		girderCtx.Logger = logrus.New()
-		girderCtx.Logger.SetFormatter(&log.TextFormatter{
-			DisableLevelTruncation: true,
-			FullTimestamp:          true,
-		})
-		if err = girderCtx.CheckMinimumVersion(); err != nil {
-			log.Fatal(err)
-		}
-		var promptedAuth string
-		for {
-			fmt.Print("auth credentials (e.g. username:password, token, api-key): ")
-			promptedAuth, _ = reader.ReadString('\n')
-			promptedAuth = strings.TrimSpace(promptedAuth)
-
-			if promptedAuth != "" {
-				break
-			}
-		}
-		girderCtx.Auth = promptedAuth
-		if err = girderCtx.ValidateAuth(); err != nil {
-			log.Fatal(err)
-		}
-		config.WriteDefaultProfile(promptedAuth, validURL)
-	} else if res == "sync" {
-		*source = strings.TrimSuffix(*source, "/")
-		*dest = strings.TrimSuffix(*dest, "/")
-
-		sourceIsGirder := strings.HasPrefix(*source, "girder://")
-		destIsGirder := strings.HasPrefix(*dest, "girder://")
-		if sourceIsGirder && destIsGirder {
-			log.Fatal("cannot sync between two girder instances")
-		} else if !sourceIsGirder && !destIsGirder {
-			log.Fatal("cannot sync between two local directories")
-		}
-		if destIsGirder {
-			if stat, err := os.Stat(*source); err != nil {
-				if os.IsNotExist(err) {
-					log.Fatalf("source directory %s does not exist.\n", *source)
-				} else {
-					log.Fatalf("failed to access source directory %s, err: %s.\n", *source, err)
-				}
-			} else if !stat.IsDir() {
-				log.Fatalf("source %s is not a directory.\n", *source)
-			}
-		}
-		if *auth == "" {
+	switch res {
+	case "configure":
+		configureCommand(ctx)
+	case "sync":
+		if ctx.Auth == "" {
 			fmt.Println("See --auth flag")
 			os.Exit(1)
-		} else if *url == "" {
+		} else if ctx.URL == "" {
 			fmt.Println("See --url flag")
 			os.Exit(1)
 		}
 
-		validURL, err := girder.GetValidURL(*url)
+		validURL, err := girder.GetValidURL(ctx.URL)
+		ctx.URL = validURL
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		girderCtx := new(girder.Context)
-		girderCtx.Auth = *auth
-		girderCtx.URL = validURL
-		girderCtx.Logger = logrus.New()
-
-		girderCtx.Logger.SetFormatter(&log.TextFormatter{
-			DisableLevelTruncation: true,
-			FullTimestamp:          true,
-		})
-		girderCtx.ResourceMap = make(girder.ResourceMap)
-		girderCtx.Destination = strings.TrimPrefix(*dest, "girder://")
-		if *verbose >= 2 {
-			girderCtx.Logger.Level = logrus.TraceLevel
-		} else if *verbose == 1 {
-
-			girderCtx.Logger.Level = logrus.DebugLevel
-		} else {
-			girderCtx.Logger.Level = logrus.InfoLevel
-		}
-		if err = girderCtx.CheckMinimumVersion(); err != nil {
-			log.Fatal(err)
-		}
-		if err = girderCtx.ValidateAuth(); err != nil {
-			log.Fatal(err)
-		}
-
-		if destIsGirder {
-			transfer.Upload(girderCtx, *source, girder.GirderID(*dest))
-		} else if sourceIsGirder {
-			download.Download(girderCtx, girder.GirderID(strings.TrimPrefix(*source, "girder://")), *dest)
-		}
-	} else if res == "version" {
-		fmt.Printf("rivet       v%s\n", version.Version)
-		fmt.Printf("build:      %s\n", version.GitCommit)
-		fmt.Printf("built:      %s\n", version.BuildDate)
-		fmt.Printf("go version: %s\n", version.GoVersion)
-		fmt.Printf("os/arch:    %s\n", version.OsArch)
+		syncCommand(ctx)
+	case "version":
+		versionCommand()
 	}
+
+}
+
+func configureCommand(ctx *girder.Context) {
+	reader := bufio.NewReader(os.Stdin)
+	var promptedURL string
+	for {
+		fmt.Print("girder url (e.g. data.kitware.com): ")
+		promptedURL, _ = reader.ReadString('\n')
+		promptedURL = strings.TrimSpace(promptedURL)
+
+		if promptedURL != "" {
+			break
+		}
+	}
+
+	validURL, err := girder.GetValidURL(promptedURL)
+
+	if err != nil {
+		ctx.Logger.Fatal(err)
+	}
+
+	if err = ctx.CheckMinimumVersion(); err != nil {
+		log.Fatal(err)
+	}
+	var promptedAuth string
+	for {
+		fmt.Print("auth credentials (e.g. username:password, token, api-key): ")
+		promptedAuth, _ = reader.ReadString('\n')
+		promptedAuth = strings.TrimSpace(promptedAuth)
+
+		if promptedAuth != "" {
+			break
+		}
+	}
+	ctx.Auth = promptedAuth
+	if err = ctx.ValidateAuth(); err != nil {
+		log.Fatal(err)
+	}
+	config.WriteDefaultProfile(promptedAuth, validURL)
+}
+
+func syncCommand(ctx *girder.Context) {
+
+	*source = strings.TrimSuffix(*source, "/")
+	*dest = strings.TrimSuffix(*dest, "/")
+
+	sourceIsGirder := strings.HasPrefix(*source, "girder://")
+	destIsGirder := strings.HasPrefix(*dest, "girder://")
+	if sourceIsGirder && destIsGirder {
+		log.Fatal("cannot sync between two girder instances")
+	} else if !sourceIsGirder && !destIsGirder {
+		log.Fatal("cannot sync between two local directories")
+	}
+	if destIsGirder {
+		if stat, err := os.Stat(*source); err != nil {
+			if os.IsNotExist(err) {
+				log.Fatalf("source directory %s does not exist.\n", *source)
+			} else {
+				log.Fatalf("failed to access source directory %s, err: %s.\n", *source, err)
+			}
+		} else if !stat.IsDir() {
+			log.Fatalf("source %s is not a directory.\n", *source)
+		}
+	}
+
+	ctx.ResourceMap = make(girder.ResourceMap)
+	ctx.Destination = strings.TrimPrefix(*dest, "girder://")
+	if *verbose >= 2 {
+		ctx.Logger.Level = logrus.TraceLevel
+	} else if *verbose == 1 {
+
+		ctx.Logger.Level = logrus.DebugLevel
+	} else {
+		ctx.Logger.Level = logrus.InfoLevel
+	}
+	if err := ctx.CheckMinimumVersion(); err != nil {
+		log.Fatal(err)
+	}
+	if err := ctx.ValidateAuth(); err != nil {
+		log.Fatal(err)
+	}
+
+	if destIsGirder {
+		transfer.Upload(ctx, *source, girder.GirderID(*dest))
+	} else if sourceIsGirder {
+		download.Download(ctx, girder.GirderID(strings.TrimPrefix(*source, "girder://")), *dest)
+	}
+}
+
+func versionCommand() {
+	fmt.Printf("rivet       v%s\n", version.Version)
+	fmt.Printf("build:      %s\n", version.GitCommit)
+	fmt.Printf("built:      %s\n", version.BuildDate)
+	fmt.Printf("go version: %s\n", version.GoVersion)
+	fmt.Printf("os/arch:    %s\n", version.OsArch)
 }

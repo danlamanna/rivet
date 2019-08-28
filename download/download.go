@@ -27,7 +27,7 @@ func maybeDownloadItem(ctx *girder.Context, p *girder.PathAndResource) {
 	st, err := os.Stat(p.Path)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			fmt.Errorf("failed to stat %s, err: %s", p.Path, err)
+			ctx.Logger.Errorf("failed to stat %s, err: %s", p.Path, err)
 			return
 		}
 	}
