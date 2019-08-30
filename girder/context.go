@@ -130,6 +130,5 @@ func (c *Context) ValidateAuth() error {
 		return nil
 	} else {
 		return errors.New("Unable to validate credentials, have they expired?")
-
 	}
 }

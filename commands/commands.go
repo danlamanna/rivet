@@ -32,6 +32,8 @@ func Configure(ctx *girder.Context) {
 		ctx.Logger.Fatal(err)
 	}
 
+	ctx.URL = validURL
+
 	if err = ctx.CheckMinimumVersion(); err != nil {
 		log.Fatal(err)
 	}
