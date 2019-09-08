@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"path"
 	"strings"
 )
 
@@ -52,6 +53,53 @@ func GetOrCreateFolderRecursive(ctx *Context, path string) (GirderID, error) {
 	}
 
 	return parentID, nil
+}
+
+func GetOrCreateFolder(ctx *Context, folderResource *Resource) (GirderID, error) {
+	parent := ctx.ResourceMap.Parent(folderResource)
+	var parentID GirderID
+	if parent != nil {
+		if parent.GirderID != "" {
+			parentID = parent.GirderID
+			if parent.SkipSync {
+				// Skip this folder for the same reason its parent was skipped.
+				folderResource.GirderType = "folder"
+				folderResource.SkipSync = true
+				folderResource.SkipReason = parent.SkipReason
+				ctx.Logger.Warnf("skipping creation of %s since parent failed", folderResource.Path)
+				return "", errors.New("parent")
+			}
+		} else {
+			// If the parent of the created folder exists within the ResourceMap,
+			// then that parent folder should have a Girder ID.
+			panic(fmt.Sprintf("GetOrCreateFolder %s parent node has a nil Girder ID", folderResource.Path))
+		}
+	} else {
+		// A root node in the filesystem tree, use the destination folder as the Girder parent.
+		parentID = GirderID(ctx.Destination)
+	}
+
+	girderFolder := new(GirderObject)
+	folderName := path.Base(folderResource.Path)
+	httpErr := new(GirderError)
+	url := fmt.Sprintf("folder?parentType=folder&reuseExisting=true&name=%s&parentId=%s", url.QueryEscape(folderName), parentID)
+	_, err := Post(ctx, url, nil, girderFolder, httpErr)
+	if err != nil {
+		ctx.Logger.Errorf("problem creating %s, err: %s", folderName, err)
+		folderResource.GirderType = "folder"
+		folderResource.SkipSync = true
+		folderResource.SkipReason = err.Error()
+		return "", err
+	} else if httpErr.Message != "" {
+		ctx.Logger.Errorf("problem creating %s, err: %s", folderName, httpErr.Message)
+		folderResource.GirderType = "folder"
+		folderResource.SkipSync = true
+		folderResource.SkipReason = httpErr.Error()
+		return "", httpErr
+	}
+	folderResource.GirderID = girderFolder.ID
+
+	return girderFolder.ID, nil
 }
 
 func GetOrCreateItem(ctx *Context, folderID GirderID, name string) (GirderID, error) {

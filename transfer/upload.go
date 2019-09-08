@@ -18,21 +18,59 @@ import (
 
 const maxChunkSize = 1024 * 1024 * 16
 
-// build these synchronously or use a better data structure for determining when parents are created
-func buildGirderDirs(ctx *girder.Context, baseDir string) {
+func buildGirderFolders(ctx *girder.Context) {
+	// Group the folders by depth.
+	// The concurrency pattern is to upload all folders at depth i
+	// before uploading any folders at depth i+1.
 
-	// get directories to build in sorted order (to avoid extraneous girder POST requests)
-	dirsToBuild := make([]string, 0)
-	for k, v := range ctx.ResourceMap {
+	var foldersByDepth = make([][]*girder.Resource, 0)
+	var numDirs, maxWidth int
+	for _, v := range ctx.ResourceMap {
 		if v.Type == "directory" {
-			dirsToBuild = append(dirsToBuild, k)
+			numDirs++
+			// Shift currentFolderDepth to be zero indexed.
+			var currentFolderDepth = len(strings.Split(path.Clean(v.Path), "/")) - 1
+			// Create subslices for specific depth values up to currentFolderDepth upon demand.
+			if len(foldersByDepth) < currentFolderDepth+1 {
+				// Some subslices may have already been created for some depths, hence start with
+				// current length of foldersByDepth.
+				for depthInd := len(foldersByDepth); depthInd < currentFolderDepth+1; depthInd++ {
+					foldersByDepth = append(foldersByDepth, make([]*girder.Resource, 0))
+				}
+			}
+			foldersByDepth[currentFolderDepth] = append(foldersByDepth[currentFolderDepth], v)
+			if len(foldersByDepth[currentFolderDepth]) > maxWidth {
+				maxWidth = len(foldersByDepth[currentFolderDepth])
+			}
 		}
-
 	}
-	sort.Slice(dirsToBuild, func(i, j int) bool { return dirsToBuild[i] < dirsToBuild[j] })
 
-	for _, v := range dirsToBuild {
-		girder.GetOrCreateFolderRecursive(ctx, v)
+	foldersToBuildChannel := make(chan *girder.Resource, maxWidth)
+	folderResultsChannel := make(chan bool, maxWidth)
+
+	numWorkers := 10
+	for w := 0; w < numWorkers; w++ {
+		go func(id int) {
+			for folderToBuild := range foldersToBuildChannel {
+				if folderToBuild != nil {
+					girder.GetOrCreateFolder(ctx, folderToBuild)
+					folderResultsChannel <- true
+				}
+			}
+		}(w)
+	}
+
+	// Iterate levels, for each level, add all folders at that level to the queue.
+	for _, foldersAtDepth := range foldersByDepth {
+		folderCountAtDepth := len(foldersAtDepth)
+		// Fill the job queue with folders at this level.
+		for _, folderToBuild := range foldersAtDepth {
+			foldersToBuildChannel <- folderToBuild
+		}
+		// Wait for all results at this level before filling queue with next level.
+		for folderResultCount := 0; folderResultCount < folderCountAtDepth; folderResultCount++ {
+			<-folderResultsChannel
+		}
 	}
 }
 
@@ -40,7 +78,7 @@ func _uploadBytes(ctx *girder.Context, upload girder.GirderID, fullPath string, 
 
 	file, err := os.Open(fullPath)
 	if err != nil {
-		ctx.Logger.Warnf("failed to access %s, skipping. err: %s", fullPath, err)
+		ctx.Logger.Warnf("failed to a=ccess %s, skipping. err: %s", fullPath, err)
 		return
 	}
 	defer file.Close()
@@ -181,7 +219,7 @@ func Upload(ctx *girder.Context, source string, destination girder.GirderID) {
 	}
 
 	ctx.Logger.Info("building remote girder directories")
-	buildGirderDirs(ctx, source)
+	buildGirderFolders(ctx)
 
 	ctx.Logger.Info("building remote girder items")
 
