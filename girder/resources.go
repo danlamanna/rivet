@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"path"
 	"strings"
 )
 
@@ -52,6 +53,32 @@ func GetOrCreateFolderRecursive(ctx *Context, path string) (GirderID, error) {
 	}
 
 	return parentID, nil
+}
+
+func GetOrCreateFolder(ctx *Context, folderResource *Resource) (GirderID, error) {
+	// assumes parent folder exists in Girder already
+	// todo: could do a check on GirderParentID?
+	girderFolder := new(GirderObject)
+	folderName := path.Base(folderResource.Path)
+    httpErr := new(GirderError)
+    url := fmt.Sprintf("folder?parentType=folder&reuseExisting=true&name=%s&parentId=%s", url.QueryEscape(folderName), string(folderResource.GirderParentID))
+    _, err := Post(ctx, url, nil, girderFolder, httpErr)
+	if err != nil {
+		ctx.Logger.Errorf("problem creating %s, err: %s", folderName, err)
+		folderResource.GirderType = "folder"
+		folderResource.SkipSync = true
+		folderResource.SkipReason = err.Error()
+		return "", err
+	} else if httpErr.Message != "" {
+		ctx.Logger.Errorf("problem creating %s, err: %s", folderName, httpErr.Message)
+		folderResource.GirderType = "folder"
+		folderResource.SkipSync = true
+		folderResource.SkipReason = httpErr.Error()
+		return "", httpErr
+	}
+	folderResource.GirderID = girderFolder.ID
+
+	return girderFolder.ID, nil
 }
 
 func GetOrCreateItem(ctx *Context, folderID GirderID, name string) (GirderID, error) {
