@@ -3,7 +3,6 @@ package commands
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/danlamanna/rivet/girder"
 	"github.com/danlamanna/rivet/transfer"
 	"github.com/danlamanna/rivet/version"
+	log "github.com/sirupsen/logrus"
 )
 
 func Configure(ctx *girder.Context) {
