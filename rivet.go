@@ -20,6 +20,9 @@ var (
 	url     = app.Flag("url", "URL of the girder instance, e.g. data.kitware.com, somedomain.com/api/v1").Envar("RIVET_URL").Short('u').String()
 	verbose = app.Flag("verbose", "Increase verbosity, can be passed up to two times.").Short('v').Counter()
 
+	// hidden global flags
+	noConfigFile = app.Flag("no-config", "Skip loading a configuration file").Bool()
+
 	// configure command
 	configure = app.Command("configure", "")
 
@@ -65,23 +68,24 @@ func main() {
 	}
 
 	// fill in auth/url, defaulting to the "default" profile
-	profile, err := config.ReadDefaultProfile()
-	if err != nil {
-		log.Fatal(err)
+	if !*noConfigFile {
+		profile, err := config.ReadDefaultProfile()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if profile != nil {
+			ctx.Auth = profile.Auth
+			ctx.URL = profile.URL
+		}
 	}
+
+	// override default profile with envvars/flags
 	if *auth != "" {
 		ctx.Auth = *auth
-	} else if profile != nil {
-		ctx.Auth = profile.Auth
-	}
-
-	if *url != "" {
+	} else if *url != "" {
 		ctx.URL = *url
-	} else if profile != nil {
-		ctx.URL = profile.URL
-	}
-
-	if res == "" {
+	} else if res == "" {
 		fmt.Printf(`usage: rivet [options] [subcommand] [arguments]
 To see help text, you can run:
 
