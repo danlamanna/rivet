@@ -11,11 +11,10 @@ import (
 	"github.com/hashicorp/go-version"
 )
 
-var GitCommit string
-
-const Version = "0.0.3"
+const Version = "0.0.4"
 
 var BuildDate = ""
+var GitCommit = ""
 var GoVersion = runtime.Version()
 var OsArch = fmt.Sprintf("%s %s", runtime.GOOS, runtime.GOARCH)
 
