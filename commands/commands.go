@@ -101,3 +101,14 @@ func Version() {
 	fmt.Printf("go version: %s\n", version.GoVersion)
 	fmt.Printf("os/arch:    %s\n", version.OsArch)
 }
+
+func APICreateFolder(ctx *girder.Context, dest string, path string) {
+	if err := ctx.ValidateAuth(); err != nil {
+		log.Fatal(err)
+	}
+	ctx.ResourceMap = make(girder.ResourceMap)
+	ctx.ResourceMap[path] = new(girder.Resource)
+	ctx.Destination = dest
+	id, _ := girder.GetOrCreateFolderRecursive(ctx, path)
+	fmt.Println(id)
+}
