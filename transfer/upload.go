@@ -120,42 +120,79 @@ func uploadFile(ctx *girder.Context, parentID girder.GirderID, fullPath string, 
 	return 1
 }
 
+func shouldSkip(ctx *girder.Context, info os.FileInfo) bool {
+	// TODO skip symlinks
+
+	return false
+}
+
+func collectResources(ctx *girder.Context, localResources ...string) chan *girder.Resource {
+	ch := make(chan *girder.Resource)
+
+	go func() {
+		for _, localResource := range localResources {
+			stat, err := os.Stat(localResource)
+
+			if err != nil {
+				ctx.Logger.Warnf("failed to stat %s, skipping", localResource)
+				continue
+			} else if shouldSkip(ctx, stat) {
+				continue
+			}
+
+			if !stat.IsDir() {
+				ch <- &girder.Resource{
+					Path: localResource,
+					Type: "file",
+					Size: stat.Size(),
+				}
+			} else {
+				err := filepath.Walk(localResource, func(filepath string, info os.FileInfo, err error) error {
+					if err != nil {
+						ctx.Logger.Warnf("failed to access %s, skipping", filepath)
+						return nil
+					} else if shouldSkip(ctx, info) {
+						return nil
+					} else if filepath == "" || filepath == "." {
+						return nil
+					}
+
+					var fileType string
+					if info.IsDir() {
+						fileType = "directory"
+					} else {
+						fileType = "file"
+					}
+					ch <- &girder.Resource{
+						Path: filepath,
+						Type: fileType,
+						Size: info.Size(),
+					}
+					return nil
+				})
+
+				if err != nil {
+					ctx.Logger.Warnf("failed to walk the %s directory", localResource)
+				}
+			}
+		}
+		close(ch)
+	}()
+	return ch
+
+}
+
 func buildResourceMap(ctx *girder.Context, baseDir string) (int, int) {
 	numDirs, numFiles := 0, 0
 
-	err := filepath.Walk(baseDir, func(filepath string, info os.FileInfo, err error) error {
-		if err != nil {
-			ctx.Logger.Warnf("failed to access %s, skipping", filepath)
-			return nil
-		}
+	for resource := range collectResources(ctx, baseDir) {
+		ctx.ResourceMap[resource.Path] = resource
 
-		if filepath == "." {
-			return nil
-		}
-
-		fileType := ""
-		if info.IsDir() {
-			fileType = "directory"
+		if resource.Type == "directory" {
 			numDirs++
-			// } else if s, _ := os.Readlink(filepath); s != nil {
-			// 	ctx.Logger.Warnf("found symlink %s, skipping", filepath)
-		} else {
-			fileType = "file"
+		} else if resource.Type == "file" {
 			numFiles++
 		}
-
-		ctx.ResourceMap[filepath] = &girder.Resource{
-			Path: filepath,
-			Size: info.Size(),
-			Type: fileType,
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		ctx.Logger.Errorf("failed to walk the %s directory", baseDir)
-		os.Exit(1)
 	}
 
 	return numDirs, numFiles
