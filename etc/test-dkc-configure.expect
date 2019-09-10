@@ -1,0 +1,19 @@
+#!/usr/bin/expect -f
+set RIVET [lindex $argv 0];
+set AUTH [lindex $argv 1];
+
+set timeout 10
+
+spawn $RIVET configure
+
+expect "girder url (e.g. data.kitware.com):"
+send -- "data.kitware.com\n"
+
+expect "auth credentials (e.g. username:password, token, api-key):"
+send -- "$AUTH\n"
+
+expect eof
+
+set exunt [wait -i -1]
+set child_exit_code [lindex $exunt end]
+exit $child_exit_code

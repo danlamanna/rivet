@@ -33,6 +33,10 @@ var (
 
 	// version command
 	versionCmd = app.Command("version", "")
+
+	apiCreateFolderCmd = app.Command("api-create-folder", "")
+	apiDest            = apiCreateFolderCmd.Arg("dest", "").Required().String()
+	apiPath            = apiCreateFolderCmd.Arg("path", "").Required().String()
 )
 
 func main() {
@@ -69,12 +73,13 @@ func main() {
 
 	// fill in auth/url, defaulting to the "default" profile
 	if !*noConfigFile {
-		profile, err := config.ReadDefaultProfile()
+		profile, err := config.ReadDefaultProfile(ctx)
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		if profile != nil {
+			ctx.Logger.Debug("loaded credentials from configuration file")
 			ctx.Auth = profile.Auth
 			ctx.URL = profile.URL
 		}
@@ -103,10 +108,7 @@ rivet help <subcommand>`)
 	case "configure":
 		commands.Configure(ctx)
 	case "sync":
-		if ctx.Auth == "" {
-			fmt.Println("See --auth flag")
-			os.Exit(1)
-		} else if ctx.URL == "" {
+		if ctx.URL == "" {
 			fmt.Println("See --url flag")
 			os.Exit(1)
 		}
@@ -121,5 +123,8 @@ rivet help <subcommand>`)
 		commands.Sync(ctx, source, dest)
 	case "version":
 		commands.Version()
+
+	case "api-create-folder":
+		commands.APICreateFolder(ctx, *apiDest, *apiPath)
 	}
 }

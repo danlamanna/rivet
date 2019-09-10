@@ -3,6 +3,7 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"github.com/danlamanna/rivet/girder"
 	"log"
 	"os"
 	"path"
@@ -22,19 +23,21 @@ type Profile struct {
 }
 
 // Read the default profile and return it, or nil
-func ReadDefaultProfile() (*Profile, error) {
+func ReadDefaultProfile(ctx *girder.Context) (*Profile, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
 	config := new(Config)
 	configFile := path.Join(homeDir, ".rivet", "config.toml")
+	ctx.Logger.Debugf("attempting to load config file %s", configFile)
 	if _, err := os.Stat(configFile); err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to access config file %s, err: %s", configFile, err)
 	}
+	ctx.Logger.Debugf("loaded config file %s", configFile)
 
 	_, err = toml.DecodeFile(configFile, config)
 	if err != nil {
