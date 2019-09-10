@@ -84,7 +84,7 @@ func Sync(ctx *girder.Context, source *string, dest *string) {
 		log.Fatal(err)
 	}
 	if err := ctx.ValidateAuth(); err != nil {
-		log.Fatal(err)
+		log.Warn(err)
 	}
 
 	if destIsGirder {

@@ -108,10 +108,7 @@ rivet help <subcommand>`)
 	case "configure":
 		commands.Configure(ctx)
 	case "sync":
-		if ctx.Auth == "" {
-			fmt.Println("See --auth flag")
-			os.Exit(1)
-		} else if ctx.URL == "" {
+		if ctx.URL == "" {
 			fmt.Println("See --url flag")
 			os.Exit(1)
 		}
