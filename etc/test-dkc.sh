@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -exu
 set -o pipefail
 
 readonly RIVET="$1"
@@ -39,5 +39,6 @@ $RIVET sync "girder://$TEST_FOLDER" "$TESTDATA_DIR2"
 
 test_checksums "$TESTDATA_DIR2"
 
+# TODO: consider using traps for these
 rm -rf "$TESTDATA_DIR" "$TESTDATA_DIR2"
 
