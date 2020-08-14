@@ -23,8 +23,14 @@ func addBaseHeaders(ctx *Context, request *retryablehttp.Request) {
 }
 
 func urlFromRequest(request *http.Request) string {
-	return fmt.Sprintf("%s://%s%s?%s", request.URL.Scheme,
-		request.URL.Host, request.URL.Path, request.URL.RawQuery)
+	queryString := ""
+
+	if request.URL.RawQuery != "" {
+		queryString = fmt.Sprintf("?%s", request.URL.RawQuery)
+	}
+
+	return fmt.Sprintf("%s://%s%s%s", request.URL.Scheme,
+		request.URL.Host, request.URL.Path, queryString)
 
 }
 
