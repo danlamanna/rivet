@@ -16,7 +16,7 @@ const Version = "0.0.4"
 var BuildDate = ""
 var GitCommit = ""
 var GoVersion = runtime.Version()
-var OsArch = fmt.Sprintf("%s %s", runtime.GOOS, runtime.GOARCH)
+var OsArch = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
 
 type GithubRelease struct {
 	Version string `json:"name"`
