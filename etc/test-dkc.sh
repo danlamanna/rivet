@@ -22,7 +22,7 @@ test_checksums() {
 }
 
 # don't pass auth, this is a public collection
-$RIVET sync --no-config --url data.kitware.com girder://5d77d580d35580e6dc005775 "$TESTDATA_DIR"
+$RIVET sync -vv --no-config --url data.kitware.com girder://5d77d580d35580e6dc005775 "$TESTDATA_DIR"
 
 test_checksums "$TESTDATA_DIR"
 
@@ -33,9 +33,9 @@ expect -f ./test-dkc-configure.expect "$RIVET" "$DKC_API_KEY" > /dev/null
 TEST_DIR="$(date +%s)"
 TEST_FOLDER=$($RIVET api-create-folder 5d77d6e1d35580e6dc0076d9 "$TEST_DIR" | xargs echo -n)
 
-$RIVET sync "$TESTDATA_DIR" "girder://$TEST_FOLDER"
+$RIVET sync -vv "$TESTDATA_DIR" "girder://$TEST_FOLDER"
 
-$RIVET sync "girder://$TEST_FOLDER" "$TESTDATA_DIR2"
+$RIVET sync -vv "girder://$TEST_FOLDER" "$TESTDATA_DIR2"
 
 test_checksums "$TESTDATA_DIR2"
 
