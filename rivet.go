@@ -88,9 +88,12 @@ func main() {
 	// override default profile with envvars/flags
 	if *auth != "" {
 		ctx.Auth = *auth
-	} else if *url != "" {
+	}
+	if *url != "" {
 		ctx.URL = *url
-	} else if res == "" {
+	}
+
+	if res == "" {
 		fmt.Printf(`usage: rivet [options] [subcommand] [arguments]
 To see help text, you can run:
 
