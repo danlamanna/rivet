@@ -7,13 +7,13 @@ a tiny cli for syncing a directory with a girder instance
 
 ## mac
 ```
-sudo curl -sL -o /usr/local/bin/rivet https://github.com/danlamanna/rivet/releases/download/v0.0.4/rivet-0.0.4-darwin-amd64
+sudo curl -sL -o /usr/local/bin/rivet https://github.com/danlamanna/rivet/releases/download/v0.0.5/rivet-0.0.5-darwin-amd64
 sudo chmod +x /usr/local/bin/rivet
 ```
 
 ## linux
 ```
-sudo curl -sL -o /usr/local/bin/rivet https://github.com/danlamanna/rivet/releases/download/v0.0.4/rivet-0.0.4-linux-amd64
+sudo curl -sL -o /usr/local/bin/rivet https://github.com/danlamanna/rivet/releases/download/v0.0.5/rivet-0.0.5-linux-amd64
 sudo chmod +x /usr/local/bin/rivet
 ```
 
